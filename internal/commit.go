@@ -27,7 +27,7 @@ func ParseCommitMessage(message string) (projectName string, hash string, _ erro
 	}
 
 	projectName = messageParts[1]
-	hash = messageParts[3]
+	hash = message
 
 	return projectName, hash, nil
 }

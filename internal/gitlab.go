@@ -58,10 +58,10 @@ func (s *GitLab) CurrentUser(ctx context.Context) (*User, error) {
 }
 
 func (s *GitLab) FetchProjectPage(ctx context.Context, page int, user *User, idAfter int,
-) (_ []int, nextPage int, _ error) {
+) (_ []string, nextPage int, _ error) {
 	const perPage = 100
 
-	projects := make([]int, 0, perPage)
+	projects := make([]string, 0, perPage)
 
 	opt := &gitlab.ListProjectsOptions{
 		ListOptions: gitlab.ListOptions{
@@ -81,11 +81,11 @@ func (s *GitLab) FetchProjectPage(ctx context.Context, page int, user *User, idA
 	}
 
 	for _, proj := range projs {
-		if !s.HasUserContributions(ctx, user, proj.Name) {
+		if !s.HasUserContributions(ctx, user, proj.ID) {
 			continue
 		}
 
-		s.logger.Printf("Fetching project: %d", proj.Name)
+		s.logger.Printf("Fetching project: %s", proj.Name)
 
 		projects = append(projects, proj.Name)
 	}

@@ -175,7 +175,13 @@ func (a *App) lastCommitDate(repo *git.Repository) time.Time {
 func (a *App) doCommitsForProject(
 	ctx context.Context, worktree *git.Worktree, currentUser *User, projectName string, lastCommitDate time.Time,
 ) (int, error) {
-	commits, err := a.gitlab.FetchCommits(ctx, currentUser, projectName, lastCommitDate)
+	project, _, err := a.gitlab.gitlabClient.Projects.GetProject(projectName, nil)
+	if err != nil {
+		return 0, fmt.Errorf("get project ID by name: %w", err)
+	}
+	projectID := project.ID
+
+	commits, err := a.gitlab.FetchCommits(ctx, currentUser, projectID, lastCommitDate)
 	if err != nil {
 		return 0, fmt.Errorf("fetch commits: %w", err)
 	}

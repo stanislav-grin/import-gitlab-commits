@@ -81,13 +81,13 @@ func (s *GitLab) FetchProjectPage(ctx context.Context, page int, user *User, idA
 	}
 
 	for _, proj := range projs {
-		if !s.HasUserContributions(ctx, user, proj.ID) {
+		if !s.HasUserContributions(ctx, user, proj.Name) {
 			continue
 		}
 
-		s.logger.Printf("Fetching project: %d", proj.ID)
+		s.logger.Printf("Fetching project: %d", proj.Name)
 
-		projects = append(projects, proj.ID)
+		projects = append(projects, proj.Name)
 	}
 
 	if resp.CurrentPage >= resp.TotalPages {
@@ -185,7 +185,7 @@ func (s *GitLab) fetchCommitPage(
 
 		s.logger.Printf("fetching commit: %s %s", comm.ShortID, comm.CommittedDate)
 
-		commits = append(commits, NewCommit(*comm.CommittedDate, projectID, comm.ID))
+		commits = append(commits, NewCommit(*comm.CommittedDate, projectID, comm.Message))
 	}
 
 	// For performance reasons, if a query returns more than 10,000 records, GitLab

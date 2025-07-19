@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/api/client-go"
 
-	app "github.com/alexandear/import-gitlab-commits/internal"
-	"github.com/alexandear/import-gitlab-commits/internal/testutil"
+	app "github.com/stanislav-grin/import-gitlab-commits/internal"
+	"github.com/stanislav-grin/import-gitlab-commits/internal/testutil"
 )
 
 func TestGitLabCurrentUser(t *testing.T) {

@@ -1,4 +1,4 @@
-module github.com/alexandear/import-gitlab-commits/tools
+module github.com/stanislav-grin/import-gitlab-commits/tools
 
 go 1.24.0
 

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	app "github.com/alexandear/import-gitlab-commits/internal"
+	app "github.com/stanislav-grin/import-gitlab-commits/internal"
 )
 
 func TestNewCommit(t *testing.T) {

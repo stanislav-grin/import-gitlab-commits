@@ -179,6 +179,6 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/alexandear/import-gitlab-commits)
+        - prefix(github.com/stanislav-grin/import-gitlab-commits)
     gofumpt:
       extra-rules: true

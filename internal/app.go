@@ -89,13 +89,19 @@ func (a *App) Run(ctx context.Context) error {
 	page := 1
 
 	for page > 0 {
-		projects, nextPage, errFetch := a.gitlab.FetchProjectPage(ctx, page, currentUser, projectID)
+		projectIDs, nextPage, errFetch := a.gitlab.FetchProjectPage(ctx, page, currentUser, projectID)
 		if errFetch != nil {
 			return fmt.Errorf("fetch projects: %w", errFetch)
 		}
 
-		for _, project := range projects {
-			commits, errCommit := a.doCommitsForProject(ctx, worktree, currentUser, project.ID, lastCommitDate)
+		for _, projectID := range projectIDs {
+			// Get full project info
+			project, _, err := a.gitlab.gitlabClient.Projects.GetProject(projectID, nil)
+			if err != nil {
+				return fmt.Errorf("get project: %w", err)
+			}
+
+			commits, errCommit := a.doCommitsForProject(ctx, worktree, currentUser, projectID, lastCommitDate)
 			if errCommit != nil {
 				return fmt.Errorf("do commits: %w", errCommit)
 			}

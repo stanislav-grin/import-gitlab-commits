@@ -101,7 +101,12 @@ func (a *App) Run(ctx context.Context) error {
 				return fmt.Errorf("do commits: %w", errCommit)
 			}
 
-			projectCommitCounter[project] = commits
+			projectObj, _, err := a.gitlab.gitlabClient.Projects.GetProject(project, nil)
+			if err != nil {
+				return fmt.Errorf("get project: %w", err)
+			}
+
+			projectCommitCounter[projectObj.Name] = commits
 		}
 
 		page = nextPage

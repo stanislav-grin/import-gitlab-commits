@@ -58,10 +58,10 @@ func (s *GitLab) CurrentUser(ctx context.Context) (*User, error) {
 }
 
 func (s *GitLab) FetchProjectPage(ctx context.Context, page int, user *User, idAfter int,
-) (_ []string, nextPage int, _ error) {
+) (_ []int, nextPage int, _ error) {
 	const perPage = 100
 
-	projects := make([]string, 0, perPage)
+	projects := make([]int, 0, perPage)
 
 	opt := &gitlab.ListProjectsOptions{
 		ListOptions: gitlab.ListOptions{
@@ -85,9 +85,9 @@ func (s *GitLab) FetchProjectPage(ctx context.Context, page int, user *User, idA
 			continue
 		}
 
-		s.logger.Printf("Fetching project: %s", proj.Name)
+		s.logger.Printf("Fetching project: %d", proj.ID)
 
-		projects = append(projects, proj.Name)
+		projects = append(projects, proj.ID)
 	}
 
 	if resp.CurrentPage >= resp.TotalPages {
@@ -111,7 +111,6 @@ func (s *GitLab) HasUserContributions(ctx context.Context, user *User, projectID
 		contrs, resp, err := s.gitlabClient.Repositories.Contributors(projectID, opt, gitlab.WithContext(ctx))
 		if err != nil {
 			s.logger.Printf("get contributors for project %d: %v", projectID, err)
-
 			return false
 		}
 
@@ -131,15 +130,21 @@ func (s *GitLab) HasUserContributions(ctx context.Context, user *User, projectID
 	return false
 }
 
-func (s *GitLab) FetchCommits(ctx context.Context, user *User, projectName string, since time.Time,
+func (s *GitLab) FetchCommits(ctx context.Context, user *User, projectID int, since time.Time,
 ) ([]*Commit, error) {
 	commits := make([]*Commit, 0, maxCommits)
 
 	const commitsPerPage = 100
 
+	project, _, err := s.gitlabClient.Projects.GetProject(projectID, nil, gitlab.WithContext(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("get project name by ID %d: %w", projectID, err)
+	}
+	projectName := project.Name
+
 	page := 1
 	for page > 0 {
-		cms, nextPage, err := s.fetchCommitPage(ctx, user, page, commitsPerPage, since, projectName)
+		cms, nextPage, err := s.fetchCommitPage(ctx, user, page, commitsPerPage, since, projectID, projectName)
 		if err != nil {
 			return nil, fmt.Errorf("fetch one commit page: %w", err)
 		}
@@ -148,7 +153,6 @@ func (s *GitLab) FetchCommits(ctx context.Context, user *User, projectName strin
 		page = nextPage
 	}
 
-	// Reverse slice.
 	for i, j := 0, len(commits)-1; i < j; i, j = i+1, j-1 {
 		commits[i], commits[j] = commits[j], commits[i]
 	}
@@ -157,7 +161,7 @@ func (s *GitLab) FetchCommits(ctx context.Context, user *User, projectName strin
 }
 
 func (s *GitLab) fetchCommitPage(
-	ctx context.Context, user *User, page, perPage int, since time.Time, projectName string,
+	ctx context.Context, user *User, page, perPage int, since time.Time, projectID int, projectName string,
 ) (commits []*Commit, nextPage int, err error) {
 	commits = make([]*Commit, 0, perPage)
 
@@ -173,14 +177,9 @@ func (s *GitLab) fetchCommitPage(
 		opt.Since = gitlab.Ptr(since)
 	}
 
-	project, _, err := s.gitlabClient.Projects.GetProject(projectName, nil, gitlab.WithContext(ctx))
+	comms, resp, err := s.gitlabClient.Commits.ListCommits(projectID, opt, gitlab.WithContext(ctx))
 	if err != nil {
-		return nil, 0, fmt.Errorf("get project by name %s: %w", projectName, err)
-	}
-
-	comms, resp, err := s.gitlabClient.Commits.ListCommits(project.ID, opt, gitlab.WithContext(ctx))
-	if err != nil {
-		return nil, 0, fmt.Errorf("get commits for project %s: %w", projectName, err)
+		return nil, 0, fmt.Errorf("get commits for project %d: %w", projectID, err)
 	}
 
 	for _, comm := range comms {
@@ -190,7 +189,7 @@ func (s *GitLab) fetchCommitPage(
 
 		s.logger.Printf("fetching commit: %s %s", comm.ShortID, comm.CommittedDate)
 
-		commits = append(commits, NewCommit(*comm.CommittedDate, project.Name, comm.ShortID))
+		commits = append(commits, NewCommit(*comm.CommittedDate, projectName, comm.ShortID))
 	}
 
 	if resp.TotalPages == 0 {
@@ -204,7 +203,6 @@ func (s *GitLab) fetchCommitPage(
 	return commits, resp.NextPage, nil
 }
 
-// contains checks if a string `v` is in the slice `s`, ignoring case.
 func contains(s []string, v string) bool {
 	return slices.ContainsFunc(s, func(item string) bool {
 		return strings.EqualFold(item, v)

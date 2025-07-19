@@ -187,9 +187,9 @@ func (s *GitLab) fetchCommitPage(
 			continue
 		}
 
-		s.logger.Printf("fetching commit: %s %s", comm.ShortID, comm.CommittedDate)
+		s.logger.Printf("fetching commit: %s %s", comm.Message, comm.CommittedDate)
 
-		commits = append(commits, NewCommit(*comm.CommittedDate, projectName, comm.ShortID))
+		commits = append(commits, NewCommit(*comm.CommittedDate, projectName, comm.Message))
 	}
 
 	if resp.TotalPages == 0 {

@@ -20,8 +20,7 @@ import (
 
 const (
 	getCurrentUserTimeout = 2 * time.Second
-
-	maxProjects = 1000
+	maxProjects           = 1000
 )
 
 type App struct {
@@ -96,17 +95,12 @@ func (a *App) Run(ctx context.Context) error {
 		}
 
 		for _, project := range projects {
-			commits, errCommit := a.doCommitsForProject(ctx, worktree, currentUser, project, lastCommitDate)
+			commits, errCommit := a.doCommitsForProject(ctx, worktree, currentUser, project.ID, lastCommitDate)
 			if errCommit != nil {
 				return fmt.Errorf("do commits: %w", errCommit)
 			}
 
-			projectObj, _, err := a.gitlab.gitlabClient.Projects.GetProject(project, nil)
-			if err != nil {
-				return fmt.Errorf("get project: %w", err)
-			}
-
-			projectCommitCounter[projectObj.Name] = commits
+			projectCommitCounter[project.Name] = commits
 		}
 
 		page = nextPage
@@ -123,18 +117,15 @@ func (a *App) createOrOpenRepo(repoPath string) (*git.Repository, error) {
 	repo, err := git.PlainInit(repoPath, false)
 	if err == nil {
 		a.logger.Printf("Init repository %q", repoPath)
-
 		return repo, nil
 	}
 
 	if errors.Is(err, git.ErrRepositoryAlreadyExists) {
 		a.logger.Printf("Repository %q already exists, opening it", repoPath)
-
 		repo, err = git.PlainOpen(repoPath)
 		if err != nil {
 			return nil, fmt.Errorf("open: %w", err)
 		}
-
 		return repo, nil
 	}
 
@@ -147,39 +138,35 @@ func (a *App) lastCommitDate(repo *git.Repository) time.Time {
 		if !errors.Is(err, plumbing.ErrReferenceNotFound) {
 			a.logger.Printf("Failed to get repo head: %v", err)
 		}
-
 		return time.Time{}
 	}
 
 	headCommit, err := repo.CommitObject(head.Hash())
 	if err != nil {
 		a.logger.Printf("Failed to get head commit: %v", err)
-
 		return time.Time{}
 	}
 
 	projectName, _, err := ParseCommitMessage(headCommit.Message)
 	if err != nil {
 		a.logger.Printf("Failed to parse commit message: %v", err)
-
 		return time.Time{}
 	}
 
 	lastCommitDate := headCommit.Committer.When
-
 	a.logger.Printf("Found last project name %s and last commit date %v", projectName, lastCommitDate)
 
 	return lastCommitDate
 }
 
 func (a *App) doCommitsForProject(
-	ctx context.Context, worktree *git.Worktree, currentUser *User, projectName string, lastCommitDate time.Time,
+	ctx context.Context, worktree *git.Worktree, currentUser *User, projectID int, lastCommitDate time.Time,
 ) (int, error) {
-	project, _, err := a.gitlab.gitlabClient.Projects.GetProject(projectName, nil)
+	project, _, err := a.gitlab.gitlabClient.Projects.GetProject(projectID, nil)
 	if err != nil {
-		return 0, fmt.Errorf("get project ID by name: %w", err)
+		return 0, fmt.Errorf("get project: %w", err)
 	}
-	projectID := project.ID
+	projectName := project.Name
 
 	commits, err := a.gitlab.FetchCommits(ctx, currentUser, projectID, lastCommitDate)
 	if err != nil {
@@ -215,7 +202,6 @@ func (a *App) doCommitsForProject(
 // repoName generates unique repo name for the user.
 func repoName(baseURL *url.URL, user *User) string {
 	host := baseURL.Host
-
 	const hostPortLen = 2
 
 	hostPort := strings.Split(host, ":")

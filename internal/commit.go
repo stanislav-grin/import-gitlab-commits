@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -12,28 +11,23 @@ type Commit struct {
 	Message     string
 }
 
-func NewCommit(committedAt time.Time, projectID int, hash string) *Commit {
+func NewCommit(committedAt time.Time, projectName string, shortHash string) *Commit {
 	return &Commit{
 		CommittedAt: committedAt,
-		Message:     fmt.Sprintf("Project: %d commit: %s", projectID, hash),
+		Message:     fmt.Sprintf("Project: %s commit: %s", projectName, shortHash),
 	}
 }
 
-func ParseCommitMessage(message string) (projectID int, hash string, _ error) {
+func ParseCommitMessage(message string) (projectName string, hash string, _ error) {
 	const messagePartsCount = 4
 
 	messageParts := strings.Split(message, " ")
 	if len(messageParts) < messagePartsCount {
-		return 0, "", fmt.Errorf("wrong commit message: %s", message)
+		return "", "", fmt.Errorf("wrong commit message: %s", message)
 	}
 
-	id, err := strconv.Atoi(messageParts[1])
-	if err != nil {
-		return 0, "", fmt.Errorf("failed to convert %s to project id: %w", messageParts[1], err)
-	}
-
-	projectID = id
+	projectName = messageParts[1]
 	hash = messageParts[3]
 
-	return projectID, hash, nil
+	return projectName, hash, nil
 }

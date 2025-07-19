@@ -58,10 +58,10 @@ func (s *GitLab) CurrentUser(ctx context.Context) (*User, error) {
 }
 
 func (s *GitLab) FetchProjectPage(ctx context.Context, page int, user *User, idAfter int,
-) (_ []int, nextPage int, _ error) {
+) (_ []string, nextPage int, _ error) {
 	const perPage = 100
 
-	projects := make([]int, 0, perPage)
+	projects := make([]string, 0, perPage)
 
 	opt := &gitlab.ListProjectsOptions{
 		ListOptions: gitlab.ListOptions{
@@ -81,11 +81,11 @@ func (s *GitLab) FetchProjectPage(ctx context.Context, page int, user *User, idA
 	}
 
 	for _, proj := range projs {
-		if !s.HasUserContributions(ctx, user, proj.Name) {
+		if !s.HasUserContributions(ctx, user, proj.ID) {
 			continue
 		}
 
-		s.logger.Printf("Fetching project: %d", proj.Name)
+		s.logger.Printf("Fetching project: %s", proj.Name)
 
 		projects = append(projects, proj.Name)
 	}
@@ -131,7 +131,7 @@ func (s *GitLab) HasUserContributions(ctx context.Context, user *User, projectID
 	return false
 }
 
-func (s *GitLab) FetchCommits(ctx context.Context, user *User, projectID int, since time.Time,
+func (s *GitLab) FetchCommits(ctx context.Context, user *User, projectName string, since time.Time,
 ) ([]*Commit, error) {
 	commits := make([]*Commit, 0, maxCommits)
 
@@ -139,7 +139,7 @@ func (s *GitLab) FetchCommits(ctx context.Context, user *User, projectID int, si
 
 	page := 1
 	for page > 0 {
-		cms, nextPage, err := s.fetchCommitPage(ctx, user, page, commitsPerPage, since, projectID)
+		cms, nextPage, err := s.fetchCommitPage(ctx, user, page, commitsPerPage, since, projectName)
 		if err != nil {
 			return nil, fmt.Errorf("fetch one commit page: %w", err)
 		}
@@ -157,7 +157,7 @@ func (s *GitLab) FetchCommits(ctx context.Context, user *User, projectID int, si
 }
 
 func (s *GitLab) fetchCommitPage(
-	ctx context.Context, user *User, page, perPage int, since time.Time, projectID int,
+	ctx context.Context, user *User, page, perPage int, since time.Time, projectName string,
 ) (commits []*Commit, nextPage int, err error) {
 	commits = make([]*Commit, 0, perPage)
 
@@ -173,9 +173,14 @@ func (s *GitLab) fetchCommitPage(
 		opt.Since = gitlab.Ptr(since)
 	}
 
-	comms, resp, err := s.gitlabClient.Commits.ListCommits(projectID, opt, gitlab.WithContext(ctx))
+	project, _, err := s.gitlabClient.Projects.GetProject(projectName, nil, gitlab.WithContext(ctx))
 	if err != nil {
-		return nil, 0, fmt.Errorf("get commits for project %d: %w", projectID, err)
+		return nil, 0, fmt.Errorf("get project by name %s: %w", projectName, err)
+	}
+
+	comms, resp, err := s.gitlabClient.Commits.ListCommits(project.ID, opt, gitlab.WithContext(ctx))
+	if err != nil {
+		return nil, 0, fmt.Errorf("get commits for project %s: %w", projectName, err)
 	}
 
 	for _, comm := range comms {
@@ -185,11 +190,9 @@ func (s *GitLab) fetchCommitPage(
 
 		s.logger.Printf("fetching commit: %s %s", comm.ShortID, comm.CommittedDate)
 
-		commits = append(commits, NewCommit(*comm.CommittedDate, projectID, comm.Message))
+		commits = append(commits, NewCommit(*comm.CommittedDate, project.Name, comm.ShortID))
 	}
 
-	// For performance reasons, if a query returns more than 10,000 records, GitLab
-	// doesn't return TotalPages.
 	if resp.TotalPages == 0 {
 		return commits, resp.NextPage, nil
 	}

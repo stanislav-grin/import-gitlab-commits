@@ -84,7 +84,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	lastCommitDate := a.lastCommitDate(repo)
 
-	projectCommitCounter := make(map[int]int, maxProjects)
+	projectCommitCounter := make(map[string]int, maxProjects)
 
 	projectID := 0
 	page := 1
@@ -101,14 +101,14 @@ func (a *App) Run(ctx context.Context) error {
 				return fmt.Errorf("do commits: %w", errCommit)
 			}
 
-			projectCommitCounter[projectID] = commits
+			projectCommitCounter[project] = commits
 		}
 
 		page = nextPage
 	}
 
 	for project, commit := range projectCommitCounter {
-		a.logger.Printf("project %d: commits %d", project, commit)
+		a.logger.Printf("project %s: commits %d", project, commit)
 	}
 
 	return nil
@@ -153,7 +153,7 @@ func (a *App) lastCommitDate(repo *git.Repository) time.Time {
 		return time.Time{}
 	}
 
-	projectID, _, err := ParseCommitMessage(headCommit.Message)
+	projectName, _, err := ParseCommitMessage(headCommit.Message)
 	if err != nil {
 		a.logger.Printf("Failed to parse commit message: %v", err)
 
@@ -162,20 +162,20 @@ func (a *App) lastCommitDate(repo *git.Repository) time.Time {
 
 	lastCommitDate := headCommit.Committer.When
 
-	a.logger.Printf("Found last project id %d and last commit date %v", projectID, lastCommitDate)
+	a.logger.Printf("Found last project name %s and last commit date %v", projectName, lastCommitDate)
 
 	return lastCommitDate
 }
 
 func (a *App) doCommitsForProject(
-	ctx context.Context, worktree *git.Worktree, currentUser *User, projectID int, lastCommitDate time.Time,
+	ctx context.Context, worktree *git.Worktree, currentUser *User, projectName string, lastCommitDate time.Time,
 ) (int, error) {
-	commits, err := a.gitlab.FetchCommits(ctx, currentUser, projectID, lastCommitDate)
+	commits, err := a.gitlab.FetchCommits(ctx, currentUser, projectName, lastCommitDate)
 	if err != nil {
 		return 0, fmt.Errorf("fetch commits: %w", err)
 	}
 
-	a.logger.Printf("Fetched %d commits for project %d", len(commits), projectID)
+	a.logger.Printf("Fetched %d commits for project %s", len(commits), projectName)
 
 	var commitCounter int
 
